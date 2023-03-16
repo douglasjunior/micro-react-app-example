@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import ReactDOM from 'react-dom';
+import ReactDOM from 'react-dom/client';
 
 window.renderReactComponent = window.renderReactComponent || {};
 
@@ -15,16 +15,20 @@ export const createEntry = ({
     name,
     component: Component,
 }) => {
-    window.renderReactComponent[name] = props => {
-        ReactDOM.render(
+    if (window.renderReactComponent[name]) {
+        throw new Error('Already exists component with name ' + name);
+    }
+
+    window.renderReactComponent[name] = (props, elementRoot) => {
+        const root = ReactDOM.createRoot(elementRoot || document.currentScript.parentNode);
+        root.render(
             <Providers>
                 <Component {...props} />
             </Providers>,
-            document.currentScript.parentNode,
         );
     };
 
     if (process.env.NODE_ENV === 'development') {
-        window.renderReactComponent[name]();
+        window.renderReactComponent[name]({}, document.getElementById('root'));
     }
 };

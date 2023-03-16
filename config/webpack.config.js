@@ -199,14 +199,7 @@ module.exports = function (webpackEnv) {
       : isEnvDevelopment && 'cheap-module-source-map',
     // These are the "entry points" to our application.
     // This means they will be the "root" imports that are included in JS bundle.
-    entry: entriesNames
-      .reduce((result, entryName) => {
-        const entryPath = entries[entryName];
-        return {
-          ...result,
-          [entryName]: entryPath,
-        };
-      }, {}),
+    entry: entries,
     output: {
       // The build folder.
       path: isEnvProduction ? paths.appBuild : undefined,
@@ -216,7 +209,7 @@ module.exports = function (webpackEnv) {
       // In development, it does not produce real files.
       filename: isEnvProduction
         ? 'static/js/[name].[contenthash:8].js'
-        : isEnvDevelopment && 'static/js/bundle.js',
+        : isEnvDevelopment && 'static/js/[name].bundle.js',
       // There are also additional JS chunk files if you use code splitting.
       chunkFilename: isEnvProduction
         ? 'static/js/[name].[contenthash:8].chunk.js'
@@ -252,10 +245,10 @@ module.exports = function (webpackEnv) {
       level: 'none',
     },
     optimization: {
-      splitChunks: {
+      splitChunks: isEnvProduction ? {
         chunks: 'all',
         name: false,
-      },
+      } : undefined,
       minimize: isEnvProduction,
       minimizer: [
         // This is only used in production mode
@@ -576,39 +569,42 @@ module.exports = function (webpackEnv) {
       // Generates an `index.html` file with the <script> injected.
       ...entriesNames
         .map(fileName => {
-          return new HtmlWebpackPlugin(
-            Object.assign(
-              {},
-              isEnvProduction
-                ? {
-                  filename: `${fileName}.html`,
-                  chunks: [fileName],
-                  inject: false,
-                  templateContent: ({ htmlWebpackPlugin }) => `
-                    ${htmlWebpackPlugin.tags.headTags}
-                    ${htmlWebpackPlugin.tags.bodyTags}
-                  `,
-                  minify: {
-                    removeComments: true,
-                    collapseWhitespace: true,
-                    removeRedundantAttributes: true,
-                    useShortDoctype: true,
-                    removeEmptyAttributes: true,
-                    removeStyleLinkTypeAttributes: true,
-                    keepClosingSlash: true,
-                    minifyJS: true,
-                    minifyCSS: true,
-                    minifyURLs: true,
-                  },
-                }
-                : {
-                  filename: `${fileName}.html`,
-                  chunks: [fileName],
-                  inject: true,
-                  template: paths.appHtml,
-                }
-            )
-          );
+          return new HtmlWebpackPlugin({
+            filename: fileName + '.html',
+            chunks: [fileName],
+            inject: false,
+            ...(isEnvProduction ? ({
+              templateContent: ({ htmlWebpackPlugin }) => `
+                ${htmlWebpackPlugin.tags.headTags}
+                ${htmlWebpackPlugin.tags.bodyTags}
+              `,
+              minify: {
+                removeComments: true,
+                collapseWhitespace: true,
+                removeRedundantAttributes: true,
+                useShortDoctype: true,
+                removeEmptyAttributes: true,
+                removeStyleLinkTypeAttributes: true,
+                keepClosingSlash: true,
+                minifyJS: true,
+                minifyCSS: true,
+                minifyURLs: true,
+              },
+            }) : ({
+              templateContent: ({ htmlWebpackPlugin }) => `
+                <html>
+                <head>
+                  <title>${'App ' + fileName}</title>
+                  </head>
+                  <body>
+                  <div id="root"></div>
+                  ${htmlWebpackPlugin.tags.headTags}
+                  ${htmlWebpackPlugin.tags.bodyTags}
+                </body>  
+                </html>  
+              `,
+            }))
+          });
         }),
       // Inlines the webpack runtime script. This script is too small to warrant
       // a network request.
@@ -621,7 +617,7 @@ module.exports = function (webpackEnv) {
       // <link rel="icon" href="%PUBLIC_URL%/favicon.ico">
       // It will be an empty string unless you specify "homepage"
       // in `package.json`, in which case it will be the pathname of that URL.
-      new InterpolateHtmlPlugin(HtmlWebpackPlugin, env.raw),
+      // new InterpolateHtmlPlugin(HtmlWebpackPlugin, env.raw),
       // This gives some necessary context to module not found errors, such as
       // the requesting resource.
       new ModuleNotFoundPlugin(paths.appPath),
